@@ -56,12 +56,12 @@ public class InfoBord {
 		}
 		return infobord;
 	}
-	
+
 	public void setRegels(){
 		String[] infoTekst={"--1--","--2--","--3--","--4--","leeg"};
 		int[] aankomsttijden=new int[5];
 		int aantalRegels = 0;
-		if(!infoBordRegels.isEmpty()){
+		if(!infoBordRegels.isEmpty()){	
 			for(String busID: infoBordRegels.keySet()){
 				JSONBericht regel = infoBordRegels.get(busID);
 				int dezeTijd=regel.getAankomsttijd();
@@ -81,21 +81,28 @@ public class InfoBord {
 				}
 			}
 		}
-		if(checkRepaint(aantalRegels, aankomsttijden)){
+		int totaalTijden = calculateTotaaltijden(aantalRegels, aankomsttijden);
+		if(checkRepaint(totaalTijden)){
+			hashValue = totaalTijden;
 			repaintInfoBord(infoTekst);
 		}
 	}
+
+	// CQS, it was doing more than checkRepaint. So now the calculateTotaalTijden 
+	// before the checkRepaint and that is used to ONLY check if it has to be repainted
+	private boolean checkRepaint(int totaalTijden){
+		if(hashValue!=totaalTijden){
+			return true;
+		}
+		return false;
+	}
 	
-	private boolean checkRepaint(int aantalRegels, int[] aankomsttijden){
+	private int calculateTotaaltijden(int aantalRegels, int[] aankomsttijden) {
 		int totaalTijden=0;
 		for(int i=0; i<aantalRegels;i++){
 			totaalTijden+=aankomsttijden[i];
 		}
-		if(hashValue!=totaalTijden){
-			hashValue=totaalTijden;
-			return true;
-		}
-		return false;
+		return totaalTijden;
 	}
 
 	private void repaintInfoBord(String[] infoTekst){
@@ -109,19 +116,26 @@ public class InfoBord {
 		scherm.repaint();		
 	}
 	
+	
+	public static void updateInfoBord(JSONBericht bericht, String busID, Integer tijd) {
+		if (!laatsteBericht.containsKey(busID) || laatsteBericht.get(busID)<=tijd){
+			laatsteBericht.put(busID, tijd);
+			if (bericht.getAankomsttijd()==0){
+				infoBordRegels.remove(busID);
+			} else {
+				infoBordRegels.put(busID, bericht);
+			}
+		}
+	}
+	
+	// This function had too much going. With the new function updateInfoBord the workings
+	// of the function verwerktBericht is now more clear and the updating part is separated
 	public static void verwerktBericht(String incoming){
         try {
 			JSONBericht bericht = new ObjectMapper().readValue(incoming, JSONBericht.class);
 			String busID = bericht.getBusID();
 			Integer tijd = bericht.getTijd();
-			if (!laatsteBericht.containsKey(busID) || laatsteBericht.get(busID)<=tijd){
-				laatsteBericht.put(busID, tijd);
-				if (bericht.getAankomsttijd()==0){
-					infoBordRegels.remove(busID);
-				} else {
-					infoBordRegels.put(busID, bericht);
-				}
-			}
+			updateInfoBord(bericht, busID, tijd);
 		} catch (IOException e) {
 			e.printStackTrace();
 		}
